@@ -39,3 +39,11 @@ class ComplaintResponse(BaseModel):
     data_origin: str
     class Config:
         from_attributes = True
+
+class StatusUpdate(BaseModel):
+    status: ComplaintStatus
+    note: Optional[str] = None
+
+class AssignRequest(BaseModel):
+    assignee_id: int
+    note: Optional[str] = None

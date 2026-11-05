@@ -93,3 +93,12 @@ class StatusEvent(Base):
     actor_id = Column(Integer, ForeignKey("users.id"))
     note = Column(String)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+    id = Column(Integer, primary_key=True, index=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"))
+    assignee_id = Column(Integer, ForeignKey("users.id"))
+    assigned_by = Column(Integer, ForeignKey("users.id"))
+    note = Column(String)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
