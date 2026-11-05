@@ -17,7 +17,20 @@ export default function OpsQueue() {
   });
 
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   
+
+  const handleBulkStatus = async (status: string) => {
+    if (selectedIds.length === 0) return;
+    await fetch(`${API_URL}/ops/reports/bulk-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ report_ids: selectedIds, status, note: "Bulk action by operator" })
+    });
+    setSelectedIds([]);
+    // Invalidate query to refresh
+  };
+
   if (isLoading) return <div className="p-10 text-center text-slate-500">Loading queue...</div>;
   if (isError) return <div className="p-10 text-center text-red-500">Failed to load queue.</div>;
 
@@ -34,12 +47,14 @@ export default function OpsQueue() {
         <div className="flex gap-2">
           <input type="text" placeholder="Search reference..." className="border p-2 rounded-md text-sm w-64" value={search} onChange={e => setSearch(e.target.value)} />
           <a href={`${API_URL}/analytics/export`} target="_blank"><Button variant="outline" className="gap-2">Export CSV</Button></a>
+          <a href={`${API_URL}/analytics/export-pdf`} target="_blank"><Button variant="outline" className="gap-2">Export PDF</Button></a>
         </div>
       </div>
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 border-b">
             <tr>
+              <th className="px-6 py-4"><input type="checkbox" onChange={(e) => { if (e.target.checked) setSelectedIds(filtered.map((r: any) => r.id)); else setSelectedIds([]); }} /></th>
               <th className="px-6 py-4 font-medium text-slate-600">Ref ID</th>
               <th className="px-6 py-4 font-medium text-slate-600">Category</th>
               <th className="px-6 py-4 font-medium text-slate-600">Description</th>
@@ -50,9 +65,10 @@ export default function OpsQueue() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-500">No reports found.</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-slate-500">No reports found.</td></tr>
             ) : filtered.map((r: any) => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
+                <td className="px-6 py-4"><input type="checkbox" checked={selectedIds.includes(r.id)} onChange={(e) => { if (e.target.checked) setSelectedIds([...selectedIds, r.id]); else setSelectedIds(selectedIds.filter((id: number) => id !== r.id)); }} /></td>
                 <td className="px-6 py-4 font-mono text-slate-500">{r.public_ref}</td>
                 <td className="px-6 py-4 font-medium">{r.category.replace('_', ' ').toUpperCase()}</td>
                 <td className="px-6 py-4 truncate max-w-xs">{r.description}</td>
@@ -66,6 +82,18 @@ export default function OpsQueue() {
           </tbody>
         </table>
       </div>
+
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#102F35] text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-6 z-50">
+          <span className="text-sm font-medium">{selectedIds.length} selected</span>
+          <div className="flex gap-2">
+            <button onClick={() => handleBulkStatus("acknowledged")} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-sm transition-colors">Acknowledge</button>
+            <button onClick={() => handleBulkStatus("in_progress")} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-sm transition-colors">In Progress</button>
+            <button onClick={() => handleBulkStatus("resolved")} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors">Resolve</button>
+          </div>
+          <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-white ml-4">Cancel</button>
+        </div>
+      )}
     </div>
   );
 }

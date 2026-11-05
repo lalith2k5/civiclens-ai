@@ -13,6 +13,15 @@ export default function Admin() {
   const { data: wards } = useQuery({ queryKey: ["wards"], queryFn: () => fetch(`${API_URL}/admin/wards`).then(r => r.json()) });
   const { data: depts } = useQuery({ queryKey: ["depts"], queryFn: () => fetch(`${API_URL}/admin/departments`).then(r => r.json()) });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: () => fetch(`${API_URL}/admin/users`).then(r => r.json()) });
+  const { data: slas } = useQuery({ queryKey: ["slas"], queryFn: () => fetch(`${API_URL}/admin/sla`).then(r => r.json()) });
+  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => fetch(`${API_URL}/admin/categories`).then(r => r.json()) });
+  const { data: workflow } = useQuery({ queryKey: ["workflow"], queryFn: () => fetch(`${API_URL}/admin/workflow`).then(r => r.json()) });
+  const { data: workspace } = useQuery({ queryKey: ["workspace"], queryFn: () => fetch(`${API_URL}/admin/workspace`).then(r => r.json()) });
+
+  const updateSla = useMutation({
+    mutationFn: ({ priority, hours }: { priority: string, hours: number }) => fetch(`${API_URL}/admin/sla`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priority, hours }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["slas"] })
+  });
 
   // Mutations
   const addWard = useMutation({
@@ -35,7 +44,7 @@ export default function Admin() {
       <h2 className="text-2xl font-bold text-slate-900">Admin Configuration</h2>
       
       <div className="flex gap-2 border-b">
-        {["wards", "departments", "users"].map(tab => (
+        {["wards", "departments", "users", "categories", "workflow", "workspace", "sla"].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 font-medium capitalize border-b-2 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-slate-500'}`}>{tab}</button>
         ))}
       </div>
@@ -46,6 +55,7 @@ export default function Admin() {
             <input id="wardName" className="border p-2 rounded w-full" placeholder="New Ward Name" />
             <Button onClick={() => { const el = document.getElementById('wardName') as HTMLInputElement; if(el.value) { addWard.mutate(el.value); el.value = ''; } }}>Add</Button>
           </div>
+          <input type="file" accept=".geojson,.json" className="mb-4" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { const text = await file.text(); const json = JSON.parse(text); await fetch(`${API_URL}/admin/wards/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }); window.location.reload(); } }} />
           <ul className="space-y-2">
             {wards?.map((w: any) => <li key={w.id} className="p-3 bg-slate-50 rounded border flex justify-between">{w.name} <Badge>{w.code}</Badge></li>)}
           </ul>
@@ -87,6 +97,64 @@ export default function Admin() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+
+      {activeTab === "categories" && (
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold mb-4">Manage Categories</h3>
+          <ul className="space-y-2">
+            {categories?.map((c: any) => (
+              <li key={c.id} className="p-3 bg-slate-50 rounded border flex justify-between items-center">
+                <span>{c.name}</span>
+                <Badge variant="outline">{c.id}</Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {activeTab === "workflow" && (
+        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3">
+          <h3 className="font-bold mb-4">Status Transition Rules</h3>
+          {workflow?.map((w: any) => (
+            <div key={w.id} className="flex items-center gap-2 text-sm p-2 bg-slate-50 rounded">
+              <span className="font-bold text-slate-700">{w.from_status}</span>
+              <span className="text-slate-400">→</span>
+              <span className="font-bold text-primary">{w.to_status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "workspace" && (
+        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
+          <h3 className="font-bold mb-4">Workspace Settings</h3>
+          <div>
+            <label className="block text-sm font-medium mb-1">Timezone</label>
+            <input type="text" defaultValue={workspace?.timezone || "Asia/Kolkata"} className="border p-2 rounded w-full"
+              onBlur={async (e) => { await fetch(`${API_URL}/admin/workspace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ timezone: e.target.value }) }); }} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Brand Color</label>
+            <input type="color" defaultValue={workspace?.brand_color || "#176B61"} className="border p-2 rounded"
+              onBlur={async (e) => { await fetch(`${API_URL}/admin/workspace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand_color: e.target.value }) }); }} />
+          </div>
+        </div>
+      )}
+      {activeTab === "sla" && (
+        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
+          <h3 className="font-bold mb-4">SLA Configuration (Hours)</h3>
+          {slas?.map((s: any) => (
+            <div key={s.priority} className="flex items-center gap-4">
+              <span className="w-24 font-medium">{s.priority}</span>
+              <input type="number" defaultValue={s.hours} className="border p-2 rounded w-32" 
+                onBlur={(e) => updateSla.mutate({ priority: s.priority, hours: parseInt(e.target.value) })} 
+              />
+              <span className="text-slate-500 text-sm">hours</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

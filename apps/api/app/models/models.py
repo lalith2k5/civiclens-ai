@@ -81,6 +81,7 @@ class Complaint(Base):
     status = Column(Enum(ComplaintStatus), default=ComplaintStatus.SUBMITTED)
     priority = Column(String, default="Medium")
     data_origin = Column(String, default="seed")
+    is_draft = Column(Boolean, default=False)
     idempotency_key = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime, nullable=True)
@@ -121,3 +122,45 @@ class Notification(Base):
     message = Column(String)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class SLAConfig(Base):
+    __tablename__ = "sla_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    priority = Column(String, unique=True)
+    hours = Column(Integer)
+
+class Comment(Base):
+    __tablename__ = "comments"
+    id = Column(Integer, primary_key=True, index=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"))
+    author_id = Column(Integer, ForeignKey("users.id"))
+    body = Column(String)
+    visibility = Column(String, default="public") # public or private
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class DuplicateLink(Base):
+    __tablename__ = "duplicate_links"
+    id = Column(Integer, primary_key=True, index=True)
+    source_complaint_id = Column(Integer, ForeignKey("complaints.id"))
+    parent_complaint_id = Column(Integer, ForeignKey("complaints.id"))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class SavedView(Base):
+    __tablename__ = "saved_views"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String)
+    filters = Column(String)
+
+class WorkflowConfig(Base):
+    __tablename__ = "workflow_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    from_status = Column(String)
+    to_status = Column(String)
+
+class WorkspaceSettings(Base):
+    __tablename__ = "workspace_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    timezone = Column(String, default="Asia/Kolkata")
+    brand_color = Column(String, default="#176B61")
+    logo_url = Column(String, nullable=True)

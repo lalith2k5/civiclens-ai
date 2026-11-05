@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { API_URL, getToken, logout } from "@/lib/api";
-import { Plus, LogOut, CheckCircle2, Clock } from "lucide-react";
+import { Plus, LogOut, CheckCircle2, Clock, User } from "lucide-react";
 import Link from "next/link";
 
 export default function Dashboard() {
@@ -33,6 +33,7 @@ export default function Dashboard() {
         <span className="font-bold text-xl text-primary">CIVICLENS</span>
         <div className="flex gap-4">
           <Link href="/report"><Button className="gap-2"><Plus className="h-4 w-4"/> New Report</Button></Link>
+          <Link href="/profile"><Button variant="ghost"><User className="h-4 w-4"/></Button></Link>
           <Button variant="ghost" onClick={logout}><LogOut className="h-4 w-4"/></Button>
         </div>
       </header>
@@ -57,6 +58,7 @@ export default function Dashboard() {
                       <Badge>{r.status.toUpperCase()}</Badge>
                     </div>
                     <h3 className="font-medium text-lg">{r.description}</h3>
+                  {r.status === "RESOLVED" && <Button size="sm" variant="destructive" onClick={() => { fetch(`${API_URL}/reports/${r.id}/dispute`, { method: "POST", headers: { Authorization: `Bearer ${getToken()}` } }).then(() => window.location.reload()); }}>Still Not Fixed</Button>}
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t flex items-center gap-4 text-sm text-slate-500">

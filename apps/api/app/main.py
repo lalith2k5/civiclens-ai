@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import auth, citizen, ops, analytics, ml, admin, notifications
+from .api import auth, citizen, ops, analytics, ml, admin, notifications, search
 
 app = FastAPI(title="CIVICLENS API", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -12,6 +12,7 @@ app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytic
 app.include_router(ml.router, prefix="/api/v1/ml", tags=["Machine Learning"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin Config"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 
 @app.get("/api/v1/health")
 def health_check():
