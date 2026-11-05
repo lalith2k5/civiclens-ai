@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL, getToken, logout } from "@/lib/api";
-import "maplibre-gl/dist/maplibre-gl.css";
 
 export default function MapView() {
   const router = useRouter();
@@ -14,16 +13,11 @@ export default function MapView() {
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
-    const initMap = async () => {
-      const maplibregl = await import("maplibre-gl");
-      
-      // Tell MapLibre to use the local worker file we just downloaded
-      (maplibregl as any).workerUrl = '/maplibre-gl-csp-worker.js';
-
+    const initMap = async (maplibregl: any) => {
       map.current = new maplibregl.Map({
         container: mapContainer.current!,
         style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        center: [78.4867, 17.3850],
+        center: [78.4867, 17.3850], // Hyderabad
         zoom: 11,
       });
       map.current.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -54,7 +48,28 @@ export default function MapView() {
         setLoading(false);
       }
     };
-    initMap();
+
+    // If MapLibre is already loaded on window, use it.
+    if ((window as any).maplibregl) {
+      initMap((window as any).maplibregl);
+    } else {
+      // Otherwise, load the JS and CSS from CDN dynamically
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+      document.head.appendChild(link);
+
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+      script.onload = () => {
+        initMap((window as any).maplibregl);
+      };
+      script.onerror = () => {
+        setError("Failed to load map library from CDN.");
+        setLoading(false);
+      };
+      document.head.appendChild(script);
+    }
   }, [router]);
 
   return (
