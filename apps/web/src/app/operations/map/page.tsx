@@ -27,6 +27,10 @@ export default function MapView() {
       });
 
       map.current.addControl(new NavigationControl(), "top-right");
+      map.current.on("load", () => {
+        map.current!.addSource("reports", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.current!.addLayer({ id: "heat", type: "heatmap", source: "reports", paint: { "heatmap-weight": 1, "heatmap-intensity": 2, "heatmap-radius": 30 } });
+      });
 
       const token = getToken();
       if (!token) { router.push("/login"); return; }
@@ -39,6 +43,8 @@ export default function MapView() {
         const data = await res.json();
 
         data.forEach((report: any) => {
+          const geojson = { type: "Feature", geometry: { type: "Point", coordinates: [report.lon, report.lat] } };
+          (map.current!.getSource("reports") as any).setData({ type: "FeatureCollection", features: [geojson] });
           const color = report.priority === 'Critical' ? '#dc2626' : 
                         report.priority === 'High' ? '#d97706' : 
                         report.status === 'resolved' ? '#16a34a' : '#176b62';

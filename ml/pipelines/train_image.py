@@ -61,7 +61,7 @@ model = model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-epochs = 5
+epochs = 5 # Full training
 
 print("--- Starting FULL Training (This will take 20-30 mins) ---")
 best_val_acc = 0.0

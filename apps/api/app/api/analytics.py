@@ -44,3 +44,34 @@ def get_hotspots(db: Session = Depends(get_db)):
 def get_flood_context(db: Session = Depends(get_db)):
     events = db.query(FloodEvent).limit(50).all()
     return [{"district": e.district, "date": e.date, "severity": e.severity} for e in events]
+
+import csv
+from io import StringIO
+from fastapi.responses import StreamingResponse
+from ..models.models import Complaint, ComplaintStatus
+
+@router.get("/trends")
+def get_trends(db: Session = Depends(get_db)):
+    # Simple mock time-series for the last 7 days based on created_at
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    
+    results = db.query(
+        func.date(Complaint.created_at).label('date'),
+        func.count(Complaint.id).label('count')
+    ).filter(Complaint.created_at >= seven_days_ago).group_by('date').all()
+    
+    return [{"date": str(r.date), "count": r.count} for r in results]
+
+@router.get("/export")
+def export_complaints(db: Session = Depends(get_db)):
+    complaints = db.query(Complaint).all()
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Ref", "Category", "Description", "Status", "Priority", "Lat", "Lon"])
+    for c in complaints:
+        writer.writerow([c.id, c.public_ref, c.category, c.description, c.status, c.priority, c.lat, c.lon])
+    
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=complaints.csv"})

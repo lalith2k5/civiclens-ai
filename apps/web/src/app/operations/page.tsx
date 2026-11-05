@@ -52,6 +52,7 @@ export default function OperationsDashboard() {
               <input type="text" placeholder="Search reports..." className="pl-9 p-2 border rounded-md text-sm w-64" />
             </div>
             <Link href="/intelligence"><Button variant="outline" className="gap-2 mr-2"><Brain className="h-4 w-4" /> Intelligence</Button></Link>
+            <a href={`${API_URL}/analytics/export`} target="_blank"><Button variant="outline" className="gap-2 mr-2">Export CSV</Button></a>
             <Link href="/operations/map">
               <Button variant="outline" className="gap-2">
                 <MapIcon className="h-4 w-4" /> Map View
