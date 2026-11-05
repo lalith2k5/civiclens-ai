@@ -1,54 +1,47 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "@/lib/api";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import ReactECharts from 'echarts-for-react';
+import { Brain, TrendingUp } from "lucide-react";
 
 export default function Intelligence() {
-  const [trends, setTrends] = useState([]);
-  const [cats, setCats] = useState([]);
+  const { data: summary } = useQuery({ queryKey: ["summary"], queryFn: () => fetch(`${API_URL}/analytics/summary`).then(r => r.json()) });
+  const { data: trends } = useQuery({ queryKey: ["trends"], queryFn: () => fetch(`${API_URL}/analytics/trends`).then(r => r.json()) });
 
-  useEffect(() => {
-    fetch(`${API_URL}/analytics/trends`).then(r => r.json()).then(setTrends);
-    fetch(`${API_URL}/analytics/summary`).then(r => r.json()).then(d => setCats(d.categories));
-  }, []);
+  const pieOptions = {
+    tooltip: { trigger: 'item' },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'],
+      data: summary?.categories?.map((c: any) => ({ value: c.count, name: c.category })) || [],
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }
+    }]
+  };
+
+  const lineOptions = {
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: trends?.map((t: any) => t.date) || [] },
+    yAxis: { type: 'value' },
+    series: [{ data: trends?.map((t: any) => t.count) || [], type: 'line', smooth: true, itemStyle: { color: '#176B61' } }]
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <Link href="/operations" className="flex items-center text-slate-500 mb-6 hover:text-primary"><ArrowLeft className="h-4 w-4 mr-2" /> Back to Ops</Link>
-        <h1 className="text-3xl font-bold mb-8">Intelligence & Analytics</h1>
-        
-        <div className="grid grid-cols-2 gap-8">
-          <div className="bg-white p-6 rounded-xl border shadow-sm">
-            <h3 className="font-bold mb-4">Complaint Trends (Last 7 Days)</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#176b62" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border shadow-sm">
-            <h3 className="font-bold mb-4">Issues by Category</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#176b62" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-[#176B61] text-white rounded-lg"><Brain className="h-6 w-6" /></div>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Intelligence Studio</h2>
+          <p className="text-slate-500">Advanced analytics and model-driven insights.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold mb-4">Issue Distribution</h3>
+          <ReactECharts option={pieOptions} style={{ height: 300 }} />
+        </div>
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold mb-4 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-600"/> Volume Trends</h3>
+          <ReactECharts option={lineOptions} style={{ height: 300 }} />
         </div>
       </div>
     </div>

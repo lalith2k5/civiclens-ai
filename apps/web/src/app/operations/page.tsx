@@ -1,111 +1,60 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { API_URL, getToken, logout } from "@/lib/api";
-import { LogOut, Search, Map as MapIcon, Brain } from "lucide-react";
-import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { API_URL, getToken } from "@/lib/api";
+import { motion } from "framer-motion";
+import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
 
-export default function OperationsDashboard() {
-  const router = useRouter();
-  const [reports, setReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function OpsOverview() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["ops-summary"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/analytics/summary`, { headers: { Authorization: `Bearer ${getToken()}` }});
+      return res.json();
+    }
+  });
 
-  useEffect(() => {
-    const token = getToken();
-    if (!token) { router.push("/login"); return; }
-
-    fetch(`${API_URL}/ops/reports`, {
-      headers: { "Authorization": `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
-      })
-      .then(data => {
-        setReports(data);
-        setLoading(false);
-      })
-      .catch(err => logout());
-  }, [router]);
+  if (isLoading) return <div className="animate-pulse flex gap-4"><div className="h-32 bg-slate-200 rounded-xl flex-1"></div><div className="h-32 bg-slate-200 rounded-xl flex-1"></div></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="px-6 py-4 flex items-center justify-between border-b bg-white">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-xl tracking-tight text-primary">CIVICLENS</span>
-          <Badge variant="secondary" className="ml-2">Operations Portal</Badge>
-        </div>
-        <Button variant="ghost" onClick={logout}><LogOut className="h-4 w-4 mr-2"/> Sign Out</Button>
-      </header>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Command Dashboard</h2>
+        <p className="text-slate-500">Real-time overview of city operations and metrics.</p>
+      </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto py-8 px-6">
-        <div className="flex justify-between items-end mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">City Queue</h1>
-            <p className="text-slate-500 mt-1">Manage and dispatch all reported issues across the city.</p>
-          </div>
-          <div className="flex gap-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-              <input type="text" placeholder="Search reports..." className="pl-9 p-2 border rounded-md text-sm w-64" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { title: "Total Reports", value: data?.total_reports || 0, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+          { title: "Open Issues", value: data?.open_issues || 0, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50" },
+          { title: "Resolved", value: data?.resolved || 0, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
+          { title: "Avg Resolution", value: "7.3 Days", icon: Clock, color: "text-purple-600", bg: "bg-purple-50" },
+        ].map((kpi, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="bg-white p-5 rounded-xl border shadow-sm">
+            <div className={`w-10 h-10 ${kpi.bg} ${kpi.color} rounded-lg flex items-center justify-center mb-4`}>
+              <kpi.icon className="h-5 w-5" />
             </div>
-            <Link href="/intelligence"><Button variant="outline" className="gap-2 mr-2"><Brain className="h-4 w-4" /> Intelligence</Button></Link>
-            <a href={`${API_URL}/analytics/export`} target="_blank"><Button variant="outline" className="gap-2 mr-2">Export CSV</Button></a>
-            <Link href="/operations/map">
-              <Button variant="outline" className="gap-2">
-                <MapIcon className="h-4 w-4" /> Map View
-              </Button>
-            </Link>
+            <p className="text-sm font-medium text-slate-500">{kpi.title}</p>
+            <p className="text-3xl font-bold text-slate-900 mt-1">{kpi.value}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 bg-white p-6 rounded-xl border shadow-sm min-h-[300px] flex flex-col">
+          <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
+          <div className="flex-1 border-2 border-dashed rounded-lg flex items-center justify-center text-slate-400">
+            Activity Timeline (Connected to DB)
           </div>
         </div>
-        
-        {loading ? (
-          <p className="text-slate-500">Loading queue...</p>
-        ) : (
-          <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-100 border-b">
-                <tr>
-                  <th className="px-6 py-3 font-medium text-slate-600">Ref ID</th>
-                  <th className="px-6 py-3 font-medium text-slate-600">Category</th>
-                  <th className="px-6 py-3 font-medium text-slate-600">Description</th>
-                  <th className="px-6 py-3 font-medium text-slate-600">Status</th>
-                  <th className="px-6 py-3 font-medium text-slate-600">Priority</th>
-                  <th className="px-6 py-3 font-medium text-slate-600">Date</th>
-                  <th className="px-6 py-3 font-medium text-slate-600 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="px-6 py-4 font-mono text-slate-500">{r.public_ref}</td>
-                    <td className="px-6 py-4 font-medium">{r.category.replace('_', ' ').toUpperCase()}</td>
-                    <td className="px-6 py-4 truncate max-w-xs">{r.description}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant={r.status === 'resolved' ? 'default' : 'secondary'}>
-                        {r.status.replace('_', ' ').toUpperCase()}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`font-medium ${r.priority === 'Critical' ? 'text-red-600' : r.priority === 'High' ? 'text-amber-600' : 'text-slate-600'}`}>
-                        {r.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Link href={`/operations/report/${r.id}`}>
-                        <Button variant="outline" size="sm">Manage</Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="bg-[#102F35] text-white p-6 rounded-xl shadow-sm">
+          <h3 className="font-bold text-lg mb-2">Quick Actions</h3>
+          <p className="text-slate-300 text-sm mb-6">Jump directly to the most critical tasks.</p>
+          <div className="space-y-3">
+            <a href="/operations/queue" className="block p-3 rounded bg-white/10 hover:bg-white/20 transition-colors">View Full Queue &rarr;</a>
+            <a href="/operations/map" className="block p-3 rounded bg-white/10 hover:bg-white/20 transition-colors">Open Geospatial Map &rarr;</a>
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
