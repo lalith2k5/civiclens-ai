@@ -9,7 +9,7 @@ import Link from "next/link";
 export default function ReportIssue() {
   const router = useRouter();
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Potholes and RoadCracks");
+  const [category, setCategory] = useState("road_damage");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +22,6 @@ export default function ReportIssue() {
 
   useEffect(() => {
     if (!getToken()) router.push("/login");
-    // Generate unique key once on mount to prevent double submissions
     setIdempotencyKey(Math.random().toString(36).substring(2, 15));
   }, [router]);
 
@@ -36,10 +35,7 @@ export default function ReportIssue() {
           setLocating(false);
           checkDuplicates(position.coords.latitude.toString(), position.coords.longitude.toString(), category);
         },
-        (err) => {
-          setError("Could not get location. Please enter manually.");
-          setLocating(false);
-        }
+        () => { setError("Could not get location."); setLocating(false); }
       );
     }
   };
@@ -47,28 +43,28 @@ export default function ReportIssue() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    setPredicting(true);
-    setMlMessage("Analyzing image...");
-    
+    setPredicting(true); setMlMessage("Analyzing image...");
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      const res = await fetch(`${API_URL}/ml/predict-image`, {
-        method: "POST",
-        body: formData
-      });
+      const res = await fetch(`${API_URL}/ml/predict-image`, { method: "POST", body: formData });
       const data = await res.json();
+      if (data.error) { setMlMessage(data.error); setPredicting(false); return; }
+      
       if (data.predicted_category) {
-        setCategory(data.predicted_category);
+        // MAP ML OUTPUT TO BACKEND ENUM
+        let mappedCat = "road_damage";
+        if (data.predicted_category === "Garbage") mappedCat = "waste_sanitation";
+        if (data.predicted_category === "DamagedRoadSigns") mappedCat = "public_infra";
+        if (data.predicted_category === "DamagedElectricalPoles") mappedCat = "street_lighting";
+        if (data.predicted_category === "FallenTrees") mappedCat = "public_infra";
+        if (data.predicted_category === "Damaged concrete structures") mappedCat = "public_infra";
+        
+        setCategory(mappedCat);
         setMlMessage(`Detected: ${data.predicted_category} (${(data.confidence * 100).toFixed(1)}% confidence)`);
-      } else {
-        setMlMessage("Could not detect category.");
       }
-    } catch (err) {
-      setMlMessage("Error analyzing image.");
-    }
+    } catch (err) { setMlMessage("Error analyzing image."); }
     setPredicting(false);
   };
 
@@ -92,15 +88,13 @@ export default function ReportIssue() {
           "Authorization": `Bearer ${getToken()}`,
           "X-Idempotency-Key": idempotencyKey
         },
-        body: JSON.stringify({ 
-          description, 
-          category, 
-          lat: parseFloat(lat), 
-          lon: parseFloat(lon) 
-        }),
+        body: JSON.stringify({ description, category, lat: parseFloat(lat), lon: parseFloat(lon) }),
       });
 
-      if (!res.ok) throw new Error("Failed to submit report");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail?.[0]?.msg || "Failed to submit report");
+      }
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -121,17 +115,13 @@ export default function ReportIssue() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="p-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50 relative">
               {predicting ? (
-                <div className="flex flex-col items-center text-primary">
-                  <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                  <p className="text-sm font-medium">{mlMessage}</p>
-                </div>
+                <div className="flex flex-col items-center text-primary"><Loader2 className="h-8 w-8 animate-spin mb-2" /><p className="text-sm font-medium">{mlMessage}</p></div>
               ) : (
                 <>
                   <UploadCloud className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                   <p className="text-sm text-slate-600 font-medium">Upload Photo for AI Classification</p>
-                  <p className="text-xs text-slate-400 mt-1 mb-3">Model auto-selects the category</p>
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <Button type="button" variant="outline" size="sm">Choose Image</Button>
+                  <Button type="button" variant="outline" size="sm" className="mt-2">Choose Image</Button>
                 </>
               )}
             </div>
@@ -140,15 +130,11 @@ export default function ReportIssue() {
             <div>
               <label className="block text-sm font-medium mb-1">Issue Category</label>
               <select className="w-full p-2 border rounded-md" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="Potholes and RoadCracks">Potholes and RoadCracks</option>
-                <option value="Garbage">Garbage</option>
-                <option value="DamagedRoadSigns">Damaged Road Signs</option>
-                <option value="DamagedElectricalPoles">Damaged Electrical Poles</option>
-                <option value="Damaged concrete structures">Damaged Concrete Structures</option>
-                <option value="FallenTrees">Fallen Trees</option>
-                <option value="IllegalParking">Illegal Parking</option>
-                <option value="Graffitti">Graffiti</option>
-                <option value="DeadAnimalsPollution">Dead Animals / Pollution</option>
+                <option value="road_damage">Potholes and RoadCracks</option>
+                <option value="waste_sanitation">Garbage</option>
+                <option value="water_drainage">Water / Drainage</option>
+                <option value="street_lighting">Street Lighting</option>
+                <option value="public_infra">Public Infrastructure</option>
               </select>
             </div>
 
