@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { API_URL, getToken } from "@/lib/api";
-import { MapPin, ArrowLeft } from "lucide-react";
+import { MapPin, ArrowLeft, UploadCloud, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ReportIssue() {
@@ -14,6 +15,11 @@ export default function ReportIssue() {
   const [lon, setLon] = useState("");
   const [error, setError] = useState("");
   const [locating, setLocating] = useState(false);
+  
+  // ML States
+  const [predicting, setPredicting] = useState(false);
+  const [mlMessage, setMlMessage] = useState("");
+  const [duplicates, setDuplicates] = useState<any[]>([]);
 
   useEffect(() => {
     if (!getToken()) router.push("/login");
@@ -27,15 +33,52 @@ export default function ReportIssue() {
           setLat(position.coords.latitude.toFixed(6));
           setLon(position.coords.longitude.toFixed(6));
           setLocating(false);
+          checkDuplicates(position.coords.latitude.toString(), position.coords.longitude.toString(), category);
         },
         (err) => {
           setError("Could not get location. Please enter manually.");
           setLocating(false);
         }
       );
-    } else {
-      setError("Geolocation is not supported by your browser.");
-      setLocating(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setPredicting(true);
+    setMlMessage("Analyzing image...");
+    
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${API_URL}/ml/predict-image`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data.predicted_category) {
+        setCategory(data.predicted_category);
+        setMlMessage(`Detected: ${data.predicted_category.replace('_', ' ')} (${(data.confidence * 100).toFixed(1)}% confidence)`);
+      } else {
+        setMlMessage("Could not detect category.");
+      }
+    } catch (err) {
+      setMlMessage("Error analyzing image.");
+    }
+    setPredicting(false);
+  };
+
+  const checkDuplicates = async (latitude: string, longitude: string, cat: string) => {
+    if (!latitude || !longitude) return;
+    try {
+      const res = await fetch(`${API_URL}/ml/duplicates?lat=${latitude}&lon=${longitude}&category=${cat}`);
+      const data = await res.json();
+      setDuplicates(data);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -75,15 +118,34 @@ export default function ReportIssue() {
           <h2 className="text-2xl font-bold mb-6">Report an Urban Issue</h2>
           {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">{error}</div>}
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Image Upload for ML */}
+            <div className="p-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50 relative">
+              {predicting ? (
+                <div className="flex flex-col items-center text-primary">
+                  <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                  <p className="text-sm font-medium">{mlMessage}</p>
+                </div>
+              ) : (
+                <>
+                  <UploadCloud className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600 font-medium">Upload Photo for AI Classification</p>
+                  <p className="text-xs text-slate-400 mt-1 mb-3">Model auto-selects the category</p>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <Button type="button" variant="outline" size="sm">Choose Image</Button>
+                </>
+              )}
+            </div>
+            {mlMessage && !predicting && <p className="text-xs text-green-600 font-medium text-center">{mlMessage}</p>}
+
             <div>
               <label className="block text-sm font-medium mb-1">Issue Category</label>
               <select className="w-full p-2 border rounded-md" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="road_damage">Road Damage (Pothole)</option>
-                <option value="waste_sanitation">Waste & Sanitation</option>
-                <option value="water_drainage">Water & Drainage</option>
-                <option value="street_lighting">Street Lighting</option>
-                <option value="public_infra">Public Infrastructure</option>
+                <option value="pothole">Pothole</option>
+                <option value="damaged_road">Damaged Road</option>
+                <option value="garbage">Garbage / Waste</option>
+                <option value="broken_sign">Broken Sign</option>
+                <option value="fallen_tree">Fallen Tree</option>
               </select>
             </div>
 
@@ -91,7 +153,7 @@ export default function ReportIssue() {
               <label className="block text-sm font-medium mb-1">Description</label>
               <textarea 
                 className="w-full p-2 border rounded-md h-24" 
-                placeholder="Describe the issue..."
+                placeholder="Describe the issue (e.g. Urgent pothole near school)..."
                 value={description} onChange={(e) => setDescription(e.target.value)} required 
               />
             </div>
@@ -104,10 +166,21 @@ export default function ReportIssue() {
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" step="any" placeholder="Latitude" className="p-2 border rounded-md" value={lat} onChange={(e) => setLat(e.target.value)} required />
-                <input type="number" step="any" placeholder="Longitude" className="p-2 border rounded-md" value={lon} onChange={(e) => setLon(e.target.value)} required />
+                <input type="number" step="any" placeholder="Latitude" className="p-2 border rounded-md" value={lat} onChange={(e) => { setLat(e.target.value); checkDuplicates(e.target.value, lon, category); }} required />
+                <input type="number" step="any" placeholder="Longitude" className="p-2 border rounded-md" value={lon} onChange={(e) => { setLon(e.target.value); checkDuplicates(lat, e.target.value, category); }} required />
               </div>
             </div>
+
+            {/* Duplicate Warning */}
+            {duplicates.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-md">
+                <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Possible Duplicates Found Nearby</p>
+                <p className="text-xs text-amber-700 mb-2">Other citizens reported the same issue here. If it's the same problem, please don't submit a duplicate.</p>
+                <ul className="text-xs text-amber-800 list-disc pl-4 space-y-1">
+                  {duplicates.map(d => <li key={d.id}>{d.public_ref}: {d.description}</li>)}
+                </ul>
+              </div>
+            )}
 
             <Button type="submit" className="w-full">Submit Report</Button>
           </form>

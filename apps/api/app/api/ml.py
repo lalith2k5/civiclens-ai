@@ -67,3 +67,24 @@ async def predict_image(file: UploadFile = File(...)):
         "predicted_category": img_classes[predicted_idx.item()],
         "confidence": round(float(conf.item()), 4)
     }
+
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from ..database import get_db
+from ..models.models import Complaint
+from typing import List
+
+@router.get("/duplicates")
+def find_duplicates(lat: float, lon: float, category: str, db: Session = Depends(get_db)):
+    # Simple bounding box search for ~50 meters
+    lat_delta = 0.00045
+    lon_delta = 0.00045
+    matches = db.query(Complaint).filter(
+        Complaint.category == category,
+        Complaint.lat >= lat - lat_delta,
+        Complaint.lat <= lat + lat_delta,
+        Complaint.lon >= lon - lon_delta,
+        Complaint.lon <= lon + lon_delta
+    ).limit(3).all()
+    
+    return [{"id": m.id, "public_ref": m.public_ref, "description": m.description} for m in matches]

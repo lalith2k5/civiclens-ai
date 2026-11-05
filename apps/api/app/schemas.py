@@ -28,6 +28,7 @@ class ComplaintCreate(BaseModel):
     ward_id: Optional[int] = None
 
 class ComplaintResponse(BaseModel):
+    priority: str
     id: int
     public_ref: str
     description: str
