@@ -1,24 +1,32 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { API_URL, getToken } from "@/lib/api";
+import { API_URL, getToken, logout } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function OpsQueue() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["ops-queue"],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/ops/reports`, { headers: { Authorization: `Bearer ${getToken()}` }});
+      if (!res.ok) throw new Error("Failed to fetch queue");
       return res.json();
     }
   });
 
   const [search, setSearch] = useState("");
-  const filtered = data?.filter((r: any) => r.public_ref.toLowerCase().includes(search.toLowerCase()) || r.description.toLowerCase().includes(search.toLowerCase()));
+  
+  if (isLoading) return <div className="p-10 text-center text-slate-500">Loading queue...</div>;
+  if (isError) return <div className="p-10 text-center text-red-500">Failed to load queue. Please log in again.</div>;
 
-  if (isLoading) return <div className="p-10 text-center">Loading queue...</div>;
+  // Ensure data is an array before filtering
+  const safeData = Array.isArray(data) ? data : [];
+  const filtered = safeData.filter((r: any) => 
+    r.public_ref.toLowerCase().includes(search.toLowerCase()) || 
+    r.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -52,7 +60,9 @@ export default function OpsQueue() {
             </tr>
           </thead>
           <tbody>
-            {filtered?.map((r: any) => (
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-8 text-slate-500">No reports found.</td></tr>
+            ) : filtered.map((r: any) => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
                 <td className="px-6 py-4 font-mono text-slate-500">{r.public_ref}</td>
                 <td className="px-6 py-4 font-medium">{r.category.replace('_', ' ').toUpperCase()}</td>
