@@ -17,7 +17,7 @@ export default function MapView() {
     const initMap = async () => {
       const maplibregl = await import("maplibre-gl");
       
-      // Tell MapLibre to use our local worker file
+      // Tell MapLibre to use the local worker file we just downloaded
       (maplibregl as any).workerUrl = '/maplibre-gl-csp-worker.js';
 
       map.current = new maplibregl.Map({
