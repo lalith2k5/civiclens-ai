@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { API_URL, getToken, logout } from "@/lib/api";
-import { LogOut, Search, Map as MapIcon } from "lucide-react";
+import { LogOut, Search, Map as MapIcon, Brain } from "lucide-react";
 import Link from "next/link";
 
 export default function OperationsDashboard() {
@@ -51,6 +51,7 @@ export default function OperationsDashboard() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
               <input type="text" placeholder="Search reports..." className="pl-9 p-2 border rounded-md text-sm w-64" />
             </div>
+            <Link href="/intelligence"><Button variant="outline" className="gap-2 mr-2"><Brain className="h-4 w-4" /> Intelligence</Button></Link>
             <Link href="/operations/map">
               <Button variant="outline" className="gap-2">
                 <MapIcon className="h-4 w-4" /> Map View
