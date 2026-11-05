@@ -1,86 +1,72 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL, getToken, logout } from "@/lib/api";
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet marker icons broken by bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export default function MapView() {
   const router = useRouter();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    const token = getToken();
+    if (!token) { router.push("/login"); return; }
 
-    const initMap = async (maplibregl: any) => {
-      map.current = new maplibregl.Map({
-        container: mapContainer.current!,
-        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        center: [78.4867, 17.3850], // Hyderabad
-        zoom: 11,
-      });
-      map.current.addControl(new maplibregl.NavigationControl(), "top-right");
-
-      const token = getToken();
-      if (!token) { router.push("/login"); return; }
-
-      try {
-        const res = await fetch(`${API_URL}/ops/reports`, { headers: { Authorization: `Bearer ${token}` }});
-        if (res.status === 401) { logout(); return; }
+    fetch(`${API_URL}/ops/reports`, { headers: { Authorization: `Bearer ${token}` }})
+      .then(res => {
+        if (res.status === 401) { logout(); throw new Error("Unauthorized"); }
         if (!res.ok) throw new Error("Failed to fetch");
-        
-        const data = await res.json();
-        data.forEach((report: any) => {
-          const color = report.priority === 'Critical' ? '#dc2626' : report.priority === 'High' ? '#d97706' : report.status === 'resolved' ? '#16a34a' : '#176b62';
-          const el = document.createElement("div");
-          el.className = "w-3 h-3 rounded-full border-2 border-white shadow-md cursor-pointer";
-          el.style.backgroundColor = color;
-
-          new maplibregl.Marker(el)
-            .setLngLat([report.lon, report.lat])
-            .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`<div class="p-2"><h4 class="font-bold text-sm m-0">${report.category.toUpperCase()}</h4><p class="text-xs text-slate-500 m-0">${report.public_ref}</p></div>`))
-            .addTo(map.current!);
-        });
+        return res.json();
+      })
+      .then(data => {
+        setReports(data);
         setLoading(false);
-      } catch (err) {
+      })
+      .catch(err => {
         setError("Could not load map data.");
         setLoading(false);
-      }
-    };
-
-    // If MapLibre is already loaded on window, use it.
-    if ((window as any).maplibregl) {
-      initMap((window as any).maplibregl);
-    } else {
-      // Otherwise, load the JS and CSS from CDN dynamically
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
-      document.head.appendChild(link);
-
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
-      script.onload = () => {
-        initMap((window as any).maplibregl);
-      };
-      script.onerror = () => {
-        setError("Failed to load map library from CDN.");
-        setLoading(false);
-      };
-      document.head.appendChild(script);
-    }
+      });
   }, [router]);
 
+  if (loading) return <div className="h-[calc(100vh-8rem)] flex items-center justify-center bg-slate-50 rounded-xl border">Loading geospatial data...</div>;
+  if (error) return <div className="h-[calc(100vh-8rem)] flex items-center justify-center bg-red-50 text-red-600 rounded-xl border">{error}</div>;
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col relative rounded-xl overflow-hidden border shadow-sm">
-      {error && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-red-100 text-red-600 px-4 py-2 rounded-md shadow">{error}</div>}
-      <div ref={mapContainer} className="absolute inset-0" />
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
-          <p className="font-medium text-slate-700">Loading geospatial data...</p>
-        </div>
-      )}
+    <div className="h-[calc(100vh-8rem)] relative rounded-xl overflow-hidden border shadow-sm z-0">
+      <MapContainer 
+        center={[17.3850, 78.4867]} 
+        zoom={11} 
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        />
+        {reports.map((report) => (
+          <Marker key={report.id} position={[report.lat, report.lon]}>
+            <Popup>
+              <div className="p-1">
+                <h4 className="font-bold text-sm m-0 text-slate-900">{report.category.replace('_', ' ').toUpperCase()}</h4>
+                <p className="text-xs text-slate-500 m-0 mt-1">{report.public_ref}</p>
+                <p className="text-xs text-slate-500 m-0">{report.description.substring(0, 40)}...</p>
+                <a href={`/operations/report/${report.id}`} className="text-xs text-blue-600 font-medium hover:underline mt-2 block">View Details &rarr;</a>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
     </div>
   );
 }
