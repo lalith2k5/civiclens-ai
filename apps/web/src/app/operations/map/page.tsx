@@ -2,8 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL, getToken, logout } from "@/lib/api";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export default function MapView() {
@@ -48,8 +46,7 @@ export default function MapView() {
         });
         setLoading(false);
       } catch (err) {
-        // NO LOGOUT HERE - just show error
-        setError("Could not load map data. Backend may be offline.");
+        setError("Could not load map data.");
         setLoading(false);
       }
     };
