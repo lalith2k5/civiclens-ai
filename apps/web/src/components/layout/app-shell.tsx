@@ -23,14 +23,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     const token = getToken();
     if (!token) {
       router.push("/login");
     } else {
-      setIsAuthorized(true);
+      setIsCheckingAuth(false);
     }
   }, [router]);
 
@@ -45,7 +45,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  if (!isAuthorized) return null;
+  // SKELETON LOADER (Prevents Next.js from dropping the segment)
+  if (isCheckingAuth) {
+    return (
+      <div className="flex h-screen bg-slate-50 items-center justify-center">
+        <div className="animate-pulse flex space-x-4 items-center">
+          <div className="rounded-full bg-slate-200 h-12 w-12"></div>
+          <div className="space-y-3">
+            <div className="h-3 bg-slate-200 rounded w-48"></div>
+            <div className="h-3 bg-slate-200 rounded w-32"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
