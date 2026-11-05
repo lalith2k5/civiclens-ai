@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { API_URL, getToken } from "@/lib/api";
 import { MapPin, ArrowLeft, UploadCloud, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -10,19 +9,21 @@ import Link from "next/link";
 export default function ReportIssue() {
   const router = useRouter();
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("road_damage");
+  const [category, setCategory] = useState("Potholes and RoadCracks");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [error, setError] = useState("");
   const [locating, setLocating] = useState(false);
   
-  // ML States
   const [predicting, setPredicting] = useState(false);
   const [mlMessage, setMlMessage] = useState("");
   const [duplicates, setDuplicates] = useState<any[]>([]);
+  const [idempotencyKey, setIdempotencyKey] = useState("");
 
   useEffect(() => {
     if (!getToken()) router.push("/login");
+    // Generate unique key once on mount to prevent double submissions
+    setIdempotencyKey(Math.random().toString(36).substring(2, 15));
   }, [router]);
 
   const handleLocate = () => {
@@ -61,7 +62,7 @@ export default function ReportIssue() {
       const data = await res.json();
       if (data.predicted_category) {
         setCategory(data.predicted_category);
-        setMlMessage(`Detected: ${data.predicted_category.replace('_', ' ')} (${(data.confidence * 100).toFixed(1)}% confidence)`);
+        setMlMessage(`Detected: ${data.predicted_category} (${(data.confidence * 100).toFixed(1)}% confidence)`);
       } else {
         setMlMessage("Could not detect category.");
       }
@@ -77,9 +78,7 @@ export default function ReportIssue() {
       const res = await fetch(`${API_URL}/ml/duplicates?lat=${latitude}&lon=${longitude}&category=${cat}`);
       const data = await res.json();
       setDuplicates(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) {}
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,7 +89,8 @@ export default function ReportIssue() {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${getToken()}`
+          "Authorization": `Bearer ${getToken()}`,
+          "X-Idempotency-Key": idempotencyKey
         },
         body: JSON.stringify({ 
           description, 
@@ -119,7 +119,6 @@ export default function ReportIssue() {
           {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">{error}</div>}
           
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Image Upload for ML */}
             <div className="p-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50 relative">
               {predicting ? (
                 <div className="flex flex-col items-center text-primary">
@@ -141,21 +140,21 @@ export default function ReportIssue() {
             <div>
               <label className="block text-sm font-medium mb-1">Issue Category</label>
               <select className="w-full p-2 border rounded-md" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="pothole">Pothole</option>
-                <option value="damaged_road">Damaged Road</option>
-                <option value="garbage">Garbage / Waste</option>
-                <option value="broken_sign">Broken Sign</option>
-                <option value="fallen_tree">Fallen Tree</option>
+                <option value="Potholes and RoadCracks">Potholes and RoadCracks</option>
+                <option value="Garbage">Garbage</option>
+                <option value="DamagedRoadSigns">Damaged Road Signs</option>
+                <option value="DamagedElectricalPoles">Damaged Electrical Poles</option>
+                <option value="Damaged concrete structures">Damaged Concrete Structures</option>
+                <option value="FallenTrees">Fallen Trees</option>
+                <option value="IllegalParking">Illegal Parking</option>
+                <option value="Graffitti">Graffiti</option>
+                <option value="DeadAnimalsPollution">Dead Animals / Pollution</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea 
-                className="w-full p-2 border rounded-md h-24" 
-                placeholder="Describe the issue (e.g. Urgent pothole near school)..."
-                value={description} onChange={(e) => setDescription(e.target.value)} required 
-              />
+              <textarea className="w-full p-2 border rounded-md h-24" placeholder="Describe the issue..." value={description} onChange={(e) => setDescription(e.target.value)} required />
             </div>
 
             <div className="p-4 border rounded-md bg-slate-50">
@@ -171,11 +170,9 @@ export default function ReportIssue() {
               </div>
             </div>
 
-            {/* Duplicate Warning */}
             {duplicates.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-md">
                 <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Possible Duplicates Found Nearby</p>
-                <p className="text-xs text-amber-700 mb-2">Other citizens reported the same issue here. If it's the same problem, please don't submit a duplicate.</p>
                 <ul className="text-xs text-amber-800 list-disc pl-4 space-y-1">
                   {duplicates.map(d => <li key={d.id}>{d.public_ref}: {d.description}</li>)}
                 </ul>

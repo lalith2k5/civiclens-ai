@@ -81,6 +81,7 @@ class Complaint(Base):
     status = Column(Enum(ComplaintStatus), default=ComplaintStatus.SUBMITTED)
     priority = Column(String, default="Medium")
     data_origin = Column(String, default="seed")
+    idempotency_key = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime, nullable=True)
 
@@ -102,3 +103,12 @@ class Assignment(Base):
     assigned_by = Column(Integer, ForeignKey("users.id"))
     note = Column(String)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class FloodEvent(Base):
+    __tablename__ = "flood_events"
+    id = Column(Integer, primary_key=True, index=True)
+    district = Column(String)
+    date = Column(String)
+    severity = Column(String)
+    lat = Column(Float)
+    lon = Column(Float)
