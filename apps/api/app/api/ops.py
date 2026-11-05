@@ -77,3 +77,15 @@ def assign_report(report_id: int, payload: AssignRequest, db: Session = Depends(
         
     db.commit()
     return {"message": f"Report assigned to {assignee.name}"}
+
+@router.get("/reports/{report_id}", response_model=ComplaintResponse)
+def get_report(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_staff)):
+    complaint = db.query(Complaint).filter(Complaint.id == report_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return complaint
+
+@router.get("/workers")
+def get_workers(db: Session = Depends(get_db), current_user: User = Depends(get_current_staff)):
+    workers = db.query(User).filter(User.role == UserRole.FIELD_WORKER).all()
+    return [{"id": w.id, "name": w.name} for w in workers]

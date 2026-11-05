@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { API_URL, setToken } from "@/lib/api";
+import { jwtDecode } from "jwt-decode";
 
 export default function Login() {
   const router = useRouter();
@@ -29,7 +30,14 @@ export default function Login() {
       
       const data = await res.json();
       setToken(data.access_token);
-      router.push("/dashboard");
+      
+      // Decode token to check role
+      const decoded: any = jwtDecode(data.access_token);
+      if (decoded.role === "citizen") {
+        router.push("/dashboard");
+      } else {
+        router.push("/operations");
+      }
     } catch (err: any) {
       setError(err.message);
     }
@@ -47,7 +55,7 @@ export default function Login() {
               type="email" 
               className="w-full p-2 border rounded-md" 
               value={email} onChange={(e) => setEmail(e.target.value)} 
-              placeholder="citizen@example.com" required 
+              placeholder="operator@civiclens.ai" required 
             />
           </div>
           <div>
@@ -61,9 +69,6 @@ export default function Login() {
           </div>
           <Button type="submit" className="w-full">Sign In</Button>
         </form>
-        <p className="mt-4 text-center text-sm text-slate-500">
-          Don't have an account? <Link href="/register" className="text-primary hover:underline">Register</Link>
-        </p>
       </div>
     </div>
   );
