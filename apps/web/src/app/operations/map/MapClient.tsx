@@ -1,73 +1,102 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL, getToken, logout } from "@/lib/api";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { API_URL, getToken } from "@/lib/api";
+import "@/app/pins.css";
 
-const getMarkerIcon = (priority: string, status: string) => {
-  const color = priority === 'Critical' ? '#dc2626' : priority === 'High' ? '#d97706' : status === 'RESOLVED' ? '#16a34a' : '#176b62';
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
-};
+function pinSvg(color: string): string {
+  return `<svg viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg"><path d="M15 1C7.268 1 1 7.268 1 15c0 10.5 14 26 14 26s14-15.5 14-26C29 7.268 22.732 1 15 1z" fill="${color}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/><circle cx="15" cy="15" r="5.5" fill="#ffffff" opacity="0.95"/></svg>`;
+}
 
 export default function MapView() {
   const router = useRouter();
-  const [reports, setReports] = useState<any[]>([]);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    let localMap: any = null;
+    let resizeTimer: any = null;
+    const timer = setTimeout(async () => {
+      if (!mapRef.current) return;
+      const L = (await import("leaflet")).default;
+      await import("leaflet/dist/leaflet.css");
+      if (cancelled || !mapRef.current) return;
+      if ((mapRef.current as any)._leaflet_id) (mapRef.current as any)._leaflet_id = null;
+      try {
+        localMap = L.map(mapRef.current, { zoomControl: false }).setView([17.3850, 78.4867], 12);
+        L.control.zoom({ position: 'bottomright' }).addTo(localMap);
+        // ONLY SATELLITE VIEW
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { 
+          attribution: "&copy; Esri", maxZoom: 19 
+        }).addTo(localMap);
+        mapInstance.current = localMap;
+        resizeTimer = setTimeout(() => {
+          if (localMap && localMap.getContainer()?.isConnected) {
+            try { localMap.invalidateSize(); } catch (e) {}
+          }
+        }, 400);
+        setMapReady(true);
+      } catch (e) { console.error(e); }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (localMap) try { localMap.remove(); } catch (e) {}
+      mapInstance.current = null;
+      if (mapRef.current) (mapRef.current as any)._leaflet_id = null;
+      setMapReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
     const token = getToken();
     if (!token) { router.push("/login"); return; }
-
-    fetch(`${API_URL}/ops/reports`, { headers: { Authorization: `Bearer ${token}` }})
-      .then(res => {
-        if (res.status === 401) { logout(); throw new Error("Unauthorized"); }
-        if (!res.ok) throw new Error("Failed to fetch");
-        return res.json();
-      })
-      .then(data => { setReports(data); setLoading(false); })
-      .catch(err => { setError("Could not load map data."); setLoading(false); });
-  }, [router]);
-
-  if (loading) return <div className="h-[calc(100vh-8rem)] flex items-center justify-center bg-slate-50 rounded-xl border">Loading geospatial data...</div>;
-  if (error) return <div className="h-[calc(100vh-8rem)] flex items-center justify-center bg-red-50 text-red-600 rounded-xl border">{error}</div>;
+    const load = async () => {
+      const L = (await import("leaflet")).default;
+      try {
+        const r = await fetch(`${API_URL}/ops/reports`, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.status === 401) { router.push("/login"); return; }
+        if (!r.ok) throw new Error("Failed");
+        const data = await r.json();
+        if (!Array.isArray(data) || !mapInstance.current) return;
+        const markers: any[] = [];
+        data.forEach((rep: any) => {
+          const color = rep.priority === 'Critical' ? '#ef4444'
+            : rep.status === 'RESOLVED' ? '#22c55e'
+            : rep.priority === 'High' ? '#f59e0b' : '#0369a1';
+          const icon = L.divIcon({
+            className: '',
+            html: `<div class="pro-pin">${pinSvg(color)}</div>`,
+            iconSize: [30, 42], iconAnchor: [15, 42], popupAnchor: [0, -42],
+          });
+          const marker = L.marker([rep.lat, rep.lon], { icon })
+            .bindPopup(`<div style="min-width:200px"><div style="font-size:11px;color:#94a3b8;font-family:monospace">${rep.public_ref}</div><div style="font-weight:700;font-size:14px;margin:4px 0;color:#f8fafc">${String(rep.category).replace(/_/g,' ').toUpperCase()}</div><div style="font-size:12px;color:#cbd5e1;margin-bottom:8px">${rep.description?.slice(0,80)}...</div><a href="/operations/report/${rep.id}" style="font-size:12px;color:#38bdf8;font-weight:600;text-decoration:none">Manage →</a></div>`)
+            .addTo(mapInstance.current);
+          markers.push(marker);
+        });
+        
+        if (markers.length > 0 && mapInstance.current) {
+          const group = L.featureGroup(markers);
+          mapInstance.current.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
+        }
+        
+        setLoading(false);
+      } catch (e) { setError("Could not load map data."); setLoading(false); }
+    };
+    load();
+  }, [mapReady, router]);
 
   return (
-    <div className="h-[calc(100vh-8rem)] relative rounded-xl overflow-hidden border shadow-sm z-0">
-      <div className="absolute top-4 right-4 z-[1000] bg-white p-3 rounded-lg shadow-md flex gap-4 text-xs font-medium border">
-        <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600"></span> Critical</div>
-        <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600"></span> High</div>
-        <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#176b62]"></span> Open</div>
-        <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-600"></span> Resolved</div>
-      </div>
-
-      <MapContainer center={[17.3850, 78.4867]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-        <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        
-        {/* CLUSTERING ADDED HERE */}
-        <MarkerClusterGroup chunkedLoading>
-          {reports.map((report) => (
-            <Marker key={report.id} position={[report.lat, report.lon]} icon={getMarkerIcon(report.priority, report.status)}>
-              <Popup>
-                <div className="p-1 min-w-[200px]">
-                  <h4 className="font-bold text-sm m-0 text-slate-900">{report.category.replace('_', ' ').toUpperCase()}</h4>
-                  <p className="text-xs text-slate-500 m-0 mt-1 font-mono">{report.public_ref}</p>
-                  <p className="text-xs text-slate-600 mt-2">{report.description}</p>
-                  <a href={`/operations/report/${report.id}`} className="text-xs text-blue-600 font-medium hover:underline mt-2 block">Manage &rarr;</a>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
-      </MapContainer>
+    <div className="h-[calc(100vh-8rem)] relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl z-0 bg-black">
+      {error && <div className="absolute top-4 right-4 z-[1000] bg-red-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg text-sm">{error}</div>}
+      <div ref={mapRef} className="absolute inset-0 z-0" style={{ minHeight: "400px" }} />
+      {loading && <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur text-white font-medium z-10 pointer-events-none">Loading satellite data...</div>}
     </div>
   );
 }

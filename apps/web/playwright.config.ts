@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  timeout: 60000, // Increase from 30s to 60s for slow dev compilation
   testDir: './tests',
   fullyParallel: false,
   retries: 0,

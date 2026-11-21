@@ -48,7 +48,7 @@ export default function FieldWorkerTasks() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative">
-      <header className="bg-[#102F35] text-white p-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
+      <header className="bg-[#082f49] text-white p-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
         <div>
           <h1 className="font-bold text-lg">Field Ops</h1>
           <p className="text-xs text-slate-300">My Assigned Tasks</p>

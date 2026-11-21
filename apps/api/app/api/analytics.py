@@ -18,28 +18,6 @@ def get_summary(db: Session = Depends(get_db)):
         "categories": [{"category": c[0], "count": c[1]} for c in cat_counts]
     }
 
-@router.get("/hotspots")
-def get_hotspots(db: Session = Depends(get_db)):
-    # DBSCAN Clustering (Spec 11.5)
-    complaints = db.query(Complaint).all()
-    if not complaints: return {"hotspots": []}
-    
-    coords = np.array([[c.lat, c.lon] for c in complaints])
-    # Epsilon ~ 500m (0.0045 deg), Min samples = 3
-    dbscan = DBSCAN(eps=0.0045, min_samples=3).fit(coords)
-    
-    clusters = {}
-    for idx, label in enumerate(dbscan.labels_):
-        if label != -1: # Ignore noise
-            if label not in clusters:
-                clusters[label] = {"lat_sum": 0, "lon_sum": 0, "count": 0}
-            clusters[label]["lat_sum"] += complaints[idx].lat
-            clusters[label]["lon_sum"] += complaints[idx].lon
-            clusters[label]["count"] += 1
-            
-    hotspots = [{"lat": c["lat_sum"]/c["count"], "lon": c["lon_sum"]/c["count"], "radius": c["count"]*50} for c in clusters.values()]
-    return {"hotspots": hotspots}
-
 @router.get("/flood-context")
 def get_flood_context(db: Session = Depends(get_db)):
     events = db.query(FloodEvent).limit(50).all()
@@ -173,31 +151,9 @@ def get_data_quality(db: Session = Depends(get_db)):
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-@router.get("/hotspots")
-def get_hotspots(db: Session = Depends(get_db)):
-    complaints = db.query(Complaint).all()
-    if not complaints: return {"hotspots": []}
-    
-    coords = np.array([[c.lat, c.lon] for c in complaints])
-    # Epsilon ~ 500m, Min samples = 3
-    dbscan = DBSCAN(eps=0.0045, min_samples=3).fit(coords)
-    
-    clusters = {}
-    for idx, label in enumerate(dbscan.labels_):
-        if label != -1:
-            if label not in clusters:
-                clusters[label] = {"lat_sum": 0, "lon_sum": 0, "count": 0, "category": complaints[idx].category}
-            clusters[label]["lat_sum"] += complaints[idx].lat
-            clusters[label]["lon_sum"] += complaints[idx].lon
-            clusters[label]["count"] += 1
-            
-    return {"hotspots": [{"lat": c["lat_sum"]/c["count"], "lon": c["lon_sum"]/c["count"], "radius": c["count"]*50, "count": c["count"], "category": c["category"]} for c in clusters.values()]}
-
-from ..models.models import FloodEvent
-
 @router.get("/rainfall-context")
 def get_rainfall_context(db: Session = Depends(get_db)):
-    events = db.query(FloodEvent).limit(20).all()
+    events = db.query(FloodEvent).all()
     return [{"district": e.district, "date": e.date, "severity": e.severity, "lat": e.lat, "lon": e.lon} for e in events]
 
 @router.get("/geo-layers")
@@ -223,3 +179,58 @@ def export_quality(db: Session = Depends(get_db)):
         writer.writerow([c.public_ref, c.lat, c.lon, c.status, (c.lat == 0 or c.lon == 0)])
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=data_quality.csv"})
+
+@router.get("/hotspots")
+def get_hotspots(db: Session = Depends(get_db)):
+    complaints = db.query(Complaint).all()
+    if not complaints: return {"hotspots": []}
+    
+    coords = np.array([[c.lat, c.lon] for c in complaints])
+    dbscan = DBSCAN(eps=0.0045, min_samples=3).fit(coords)
+    
+    clusters = {}
+    for idx, label in enumerate(dbscan.labels_):
+        if label != -1:
+            if label not in clusters:
+                clusters[label] = {"lat_sum": 0, "lon_sum": 0, "count": 0, "category": complaints[idx].category}
+            clusters[label]["lat_sum"] += complaints[idx].lat
+            clusters[label]["lon_sum"] += complaints[idx].lon
+            clusters[label]["count"] += 1
+    
+    # Ensure category is a string
+    return {"hotspots": [
+        {
+            "lat": c["lat_sum"]/c["count"],
+            "lon": c["lon_sum"]/c["count"],
+            "radius": c["count"]*50,
+            "count": c["count"],
+            "category": str(c["category"].value) if hasattr(c["category"], "value") else str(c["category"])
+        } for c in clusters.values()
+    ]}
+
+@router.get("/rainfall-trends")
+def get_rainfall_trends(db: Session = Depends(get_db)):
+    from ..models.models import FloodEvent
+    events = db.query(FloodEvent).all()
+    trends = {}
+    for e in events:
+        if not e.date:
+            continue
+        date_str = str(e.date)
+        # Extract 4-digit year from formats like DD-MM-YYYY or MM/DD/YYYY
+        year = None
+        import re
+        match = re.search(r'(19|20)\d{2}', date_str)
+        if match:
+            year = match.group(0)
+            
+        if year:
+            trends[year] = trends.get(year, 0) + 1
+            
+    sorted_years = sorted(trends.keys())
+    return [{"year": y, "events": trends[y]} for y in sorted_years]
+
+@router.post("/models/{model_id}/toggle")
+def toggle_model(model_id: str):
+    # Mocking a state toggle for the UI
+    return {"status": "success", "model_id": model_id, "new_state": "Toggled"}

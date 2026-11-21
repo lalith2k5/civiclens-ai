@@ -30,7 +30,7 @@ export default function Profile() {
         
         <div className="bg-white p-8 rounded-xl border shadow-sm space-y-8">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-[#176B61] text-white flex items-center justify-center text-2xl font-bold">
+            <div className="h-16 w-16 rounded-full bg-[#0369a1] text-white flex items-center justify-center text-2xl font-bold">
               {user.name ? user.name[0] : "U"}
             </div>
             <div>

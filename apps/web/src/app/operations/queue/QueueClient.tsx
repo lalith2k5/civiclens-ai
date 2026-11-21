@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 export default function OpsQueue() {
   const { data, isLoading, isError } = useQuery({
@@ -17,22 +18,15 @@ export default function OpsQueue() {
   });
 
   const [search, setSearch] = useState("");
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   
-
-  const handleBulkStatus = async (status: string) => {
-    if (selectedIds.length === 0) return;
-    await fetch(`${API_URL}/ops/reports/bulk-status`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ report_ids: selectedIds, status, note: "Bulk action by operator" })
-    });
-    setSelectedIds([]);
-    // Invalidate query to refresh
-  };
-
-  if (isLoading) return <div className="p-10 text-center text-slate-500">Loading queue...</div>;
-  if (isError) return <div className="p-10 text-center text-red-500">Failed to load queue.</div>;
+  if (isLoading) return (
+    <div className="space-y-3">
+      {[0,1,2,3,4].map(i => (
+        <div key={i} className="h-16 bg-white/5 backdrop-blur rounded-xl border border-white/10 animate-pulse" style={{animationDelay: `${i*0.1}s`}} />
+      ))}
+    </div>
+  );
+  if (isError) return <div className="p-10 text-center text-red-400">Failed to load queue.</div>;
 
   const safeData = Array.isArray(data) ? data : [];
   const filtered = safeData.filter((r: any) => r.public_ref.toLowerCase().includes(search.toLowerCase()) || r.description.toLowerCase().includes(search.toLowerCase()));
@@ -41,59 +35,45 @@ export default function OpsQueue() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Complaint Queue</h2>
-          <p className="text-slate-500">Manage, triage, and assign city issues.</p>
+          <h2 className="text-2xl font-bold text-white">Complaint Queue</h2>
+          <p className="text-slate-400">Manage, triage, and assign city issues.</p>
         </div>
         <div className="flex gap-2">
-          <input type="text" placeholder="Search reference..." className="border p-2 rounded-md text-sm w-64" value={search} onChange={e => setSearch(e.target.value)} />
-          <a href={`${API_URL}/analytics/export`} target="_blank"><Button variant="outline" className="gap-2">Export CSV</Button></a>
-          <a href={`${API_URL}/analytics/export-pdf`} target="_blank"><Button variant="outline" className="gap-2">Export PDF</Button></a>
+          <input type="text" placeholder="Search reference..." className="p-2 rounded-md text-sm w-64 outline-none" value={search} onChange={e => setSearch(e.target.value)} />
+          <a href={`${API_URL}/analytics/export`} target="_blank"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10">Export CSV</Button></a>
+          <a href={`${API_URL}/analytics/export-pdf`} target="_blank"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10">Export PDF</Button></a>
         </div>
       </div>
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-white/5 border-b border-white/10">
             <tr>
-              <th className="px-6 py-4"><input type="checkbox" onChange={(e) => { if (e.target.checked) setSelectedIds(filtered.map((r: any) => r.id)); else setSelectedIds([]); }} /></th>
-              <th className="px-6 py-4 font-medium text-slate-600">Ref ID</th>
-              <th className="px-6 py-4 font-medium text-slate-600">Category</th>
-              <th className="px-6 py-4 font-medium text-slate-600">Description</th>
-              <th className="px-6 py-4 font-medium text-slate-600">Status</th>
-              <th className="px-6 py-4 font-medium text-slate-600">Priority</th>
-              <th className="px-6 py-4 text-right">Action</th>
+              <th className="px-6 py-4 font-medium text-slate-300">Ref ID</th>
+              <th className="px-6 py-4 font-medium text-slate-300">Category</th>
+              <th className="px-6 py-4 font-medium text-slate-300">Description</th>
+              <th className="px-6 py-4 font-medium text-slate-300">Status</th>
+              <th className="px-6 py-4 font-medium text-slate-300">Priority</th>
+              <th className="px-6 py-4 text-right text-slate-300">Action</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8 text-slate-500">No reports found.</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-slate-500">No reports found.</td></tr>
             ) : filtered.map((r: any) => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="px-6 py-4"><input type="checkbox" checked={selectedIds.includes(r.id)} onChange={(e) => { if (e.target.checked) setSelectedIds([...selectedIds, r.id]); else setSelectedIds(selectedIds.filter((id: number) => id !== r.id)); }} /></td>
-                <td className="px-6 py-4 font-mono text-slate-500">{r.public_ref}</td>
-                <td className="px-6 py-4 font-medium">{r.category.replace('_', ' ').toUpperCase()}</td>
-                <td className="px-6 py-4 truncate max-w-xs">{r.description}</td>
-                <td className="px-6 py-4"><Badge>{r.status.toUpperCase()}</Badge></td>
-                <td className="px-6 py-4"><span className="font-medium">{r.priority}</span></td>
+              <motion.tr initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} key={r.id} className="border-b border-white/5 last:border-0 hover:bg-white/10 transition-colors">
+                <td className="px-6 py-4 font-mono text-slate-400">{r.public_ref}</td>
+                <td className="px-6 py-4 font-medium text-white">{r.category.replace('_', ' ').toUpperCase()}</td>
+                <td className="px-6 py-4 truncate max-w-xs text-slate-300">{r.description}</td>
+                <td className="px-6 py-4"><Badge className="bg-white/10 text-white border-white/20">{r.status.toUpperCase()}</Badge></td>
+                <td className="px-6 py-4"><span className="font-medium text-sky-400">{r.priority}</span></td>
                 <td className="px-6 py-4 text-right">
-                  <Link href={`/operations/report/${r.id}`}><Button variant="outline" size="sm">Manage</Button></Link>
+                  <Link href={`/operations/report/${r.id}`}><Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-sky-500/20 hover:border-sky-500/50">Manage</Button></Link>
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#102F35] text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-6 z-50">
-          <span className="text-sm font-medium">{selectedIds.length} selected</span>
-          <div className="flex gap-2">
-            <button onClick={() => handleBulkStatus("acknowledged")} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-sm transition-colors">Acknowledge</button>
-            <button onClick={() => handleBulkStatus("in_progress")} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-sm transition-colors">In Progress</button>
-            <button onClick={() => handleBulkStatus("resolved")} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors">Resolve</button>
-          </div>
-          <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-white ml-4">Cancel</button>
-        </div>
-      )}
     </div>
   );
 }

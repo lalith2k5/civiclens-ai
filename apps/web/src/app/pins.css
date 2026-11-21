@@ -1,0 +1,48 @@
+/* Apple Maps / Google Maps style teardrop pins */
+.pro-pin {
+  position: relative;
+  width: 30px;
+  height: 42px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));
+}
+.pro-pin:hover {
+  transform: scale(1.15) translateY(-3px);
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,0.45));
+  z-index: 9999;
+}
+.pro-pin svg { width: 100%; height: 100%; display: block; }
+.pro-pin .pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: pinPulse 2s infinite;
+  opacity: 0;
+}
+@keyframes pinPulse {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.pro-pin.cluster {
+  width: auto; height: auto; min-width: 40px; min-height: 40px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #0369a1, #0a3f39);
+  color: white;
+  border-radius: 20px;
+  border: 3px solid white;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+/* Leaflet popup overrides — premium look */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+}
+.leaflet-popup-content { margin: 10px 12px !important; font-family: inherit !important; }
+.leaflet-popup-tip { box-shadow: 0 3px 10px rgba(0,0,0,0.15) !important; }
+/* Smooth map tiles */
+.leaflet-tile { transition: opacity 0.3s ease-in; }

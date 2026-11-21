@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,27 +50,28 @@ export default function Admin() {
         ))}
       </div>
 
+      <AnimatePresence mode="wait"><motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
       {activeTab === "wards" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl">
           <div className="flex gap-2 mb-4">
             <input id="wardName" className="border p-2 rounded w-full" placeholder="New Ward Name" />
             <Button onClick={() => { const el = document.getElementById('wardName') as HTMLInputElement; if(el.value) { addWard.mutate(el.value); el.value = ''; } }}>Add</Button>
           </div>
           <input type="file" accept=".geojson,.json" className="mb-4" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { const text = await file.text(); const json = JSON.parse(text); await fetch(`${API_URL}/admin/wards/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }); window.location.reload(); } }} />
           <ul className="space-y-2">
-            {wards?.map((w: any) => <li key={w.id} className="p-3 bg-slate-50 rounded border flex justify-between">{w.name} <Badge>{w.code}</Badge></li>)}
+            {wards?.map((w: any) => <li key={w.id} className="p-3 bg-white/5 border border-white/10 rounded flex justify-between text-white">{w.name} <Badge>{w.code}</Badge></li>)}
           </ul>
         </div>
       )}
 
       {activeTab === "departments" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl">
           <div className="flex gap-2 mb-4">
             <input id="deptName" className="border p-2 rounded w-full" placeholder="New Department Name" />
             <Button onClick={() => { const el = document.getElementById('deptName') as HTMLInputElement; if(el.value) { addDept.mutate(el.value); el.value = ''; } }}>Add</Button>
           </div>
           <ul className="space-y-2">
-            {depts?.map((d: any) => <li key={d.id} className="p-3 bg-slate-50 rounded border">{d.name}</li>)}
+            {depts?.map((d: any) => <li key={d.id} className="p-3 bg-white/5 border border-white/10 rounded text-white border">{d.name}</li>)}
           </ul>
         </div>
       )}
@@ -102,11 +104,11 @@ export default function Admin() {
 
 
       {activeTab === "categories" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl">
           <h3 className="font-bold mb-4">Manage Categories</h3>
           <ul className="space-y-2">
             {categories?.map((c: any) => (
-              <li key={c.id} className="p-3 bg-slate-50 rounded border flex justify-between items-center">
+              <li key={c.id} className="p-3 bg-white/5 border border-white/10 rounded flex justify-between text-white items-center">
                 <span>{c.name}</span>
                 <Badge variant="outline">{c.id}</Badge>
               </li>
@@ -116,10 +118,10 @@ export default function Admin() {
       )}
 
       {activeTab === "workflow" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-3">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl space-y-3">
           <h3 className="font-bold mb-4">Status Transition Rules</h3>
           {workflow?.map((w: any) => (
-            <div key={w.id} className="flex items-center gap-2 text-sm p-2 bg-slate-50 rounded">
+            <div key={w.id} className="flex items-center gap-2 text-sm p-2 bg-white/5 border border-white/10 rounded text-white">
               <span className="font-bold text-slate-700">{w.from_status}</span>
               <span className="text-slate-400">→</span>
               <span className="font-bold text-primary">{w.to_status}</span>
@@ -129,7 +131,7 @@ export default function Admin() {
       )}
 
       {activeTab === "workspace" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl space-y-4">
           <h3 className="font-bold mb-4">Workspace Settings</h3>
           <div>
             <label className="block text-sm font-medium mb-1">Timezone</label>
@@ -138,13 +140,13 @@ export default function Admin() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Brand Color</label>
-            <input type="color" defaultValue={workspace?.brand_color || "#176B61"} className="border p-2 rounded"
+            <input type="color" defaultValue={workspace?.brand_color || "#0369a1"} className="border p-2 rounded"
               onBlur={async (e) => { await fetch(`${API_URL}/admin/workspace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand_color: e.target.value }) }); }} />
           </div>
         </div>
       )}
       {activeTab === "sla" && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
+        <div className="bg-white/5 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 shadow-2xl space-y-4">
           <h3 className="font-bold mb-4">SLA Configuration (Hours)</h3>
           {slas?.map((s: any) => (
             <div key={s.priority} className="flex items-center gap-4">
@@ -157,6 +159,7 @@ export default function Admin() {
           ))}
         </div>
       )}
+      </motion.div></AnimatePresence>
     </div>
   );
 }
