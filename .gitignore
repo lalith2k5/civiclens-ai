@@ -1,31 +1,8 @@
-# Environment
-.env
-.env.local
-.env.production
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.pytest_cache/
-
-# Node
 node_modules/
 .next/
-out/
-build/
-dist/
-
-# Testing
+data/raw/
+.venv/
+.env
 test-results/
 playwright-report/
-coverage/
-
-# Data (Only keep manifests)
-data/raw/
-data/processed/
-
-# OS
 .DS_Store
-/*.py
